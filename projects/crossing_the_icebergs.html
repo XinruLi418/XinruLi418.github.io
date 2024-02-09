@@ -1,0 +1,136 @@
+<!DOCTYPE HTML>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+  <title>Crossing the icebergs</title>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.6.347/pdf.min.js"></script><!-- 引入PDF.js库 -->
+  <style>
+    /* 容器样式，用于水平居中对齐并设置合适的位置 */
+    .pdf-viewer-container {
+        position: relative;
+        width: 80%; /* 根据实际PDF大小调整 */
+        margin: auto;
+    }
+
+    /* 按钮样式 */
+    .nav-button {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        background-color: #f0f0f0; /* 轻灰色背景 */
+        border: none;
+        cursor: pointer;
+        padding: 10px; /* 按钮大小 */
+        font-size: 16px; /* 箭头大小 */
+    }
+
+    /* 左按钮定位 */
+    .prev {
+        left: -30px; /* 根据需要调整 */
+    }
+
+    /* 右按钮定位 */
+    .next {
+        right: -30px; /* 根据需要调整 */
+    }
+
+    /* PDF渲染区域 */
+    canvas {
+        display: block; /* 避免行内元素的空白间隙 */
+        margin: auto;
+    }
+</style>
+</head>
+
+<body>
+    <center>
+    <div class="pdf-viewer-container">
+        <button class="nav-button prev" id="prev-page">&#10094;</button> <!-- 左箭头 -->
+        <canvas id="pdf-render" style="width: 80%;"></canvas>
+        <button class="nav-button next" id="next-page">&#10095;</button> <!-- 右箭头 -->
+        <br/>
+        <span id="page-num"></span> / <span id="page-count"></span>
+    </div>
+    </center>
+    <script>// 设置PDF.js工作路径
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.6.347/pdf.worker.min.js';
+        pdfpath = '/assets/pdfs/A4.pdf'
+        
+        var pdfDoc = null,
+            pageNum = 1,
+            pageIsRendering = false,
+            pageNumIsPending = null;
+        
+        const scale = 1,
+              canvas = document.getElementById('pdf-render'),
+              ctx = canvas.getContext('2d'),
+              prevPageBtn = document.getElementById('prev-page'),
+              nextPageBtn = document.getElementById('next-page'),
+              pageNumDisplay = document.getElementById('page-num');
+              pageCountDisplay = document.getElementById('page-count');
+        
+        // 渲染页面
+        function renderPage(num) {
+          pageIsRendering = true;
+        
+          // 获取页面
+          pdfDoc.getPage(num).then(page => {
+            // 设置视图比例
+            const viewport = page.getViewport({ scale });
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+        
+            const renderCtx = {
+              canvasContext: ctx,
+              viewport
+            };
+        
+            page.render(renderCtx).promise.then(() => {
+              pageIsRendering = false;
+        
+              if (pageNumIsPending !== null) {
+                renderPage(pageNumIsPending);
+                pageNumIsPending = null;
+              }
+            });
+        
+            // 输出当前页码
+            pageNumDisplay.textContent = num;
+          });
+        }
+        
+        // 检查页面渲染完成
+        function queueRenderPage(num) {
+          if (pageIsRendering) {
+            pageNumIsPending = num;
+          } else {
+            renderPage(num);
+          }
+        }
+        
+        // 显示上一页
+        prevPageBtn.addEventListener('click', () => {
+          if (pageNum <= 1) {
+            return;
+          }
+          pageNum--;
+          queueRenderPage(pageNum);
+        });
+        
+        // 显示下一页
+        nextPageBtn.addEventListener('click', () => {
+          if (pageNum >= pdfDoc.numPages) {
+            return;
+          }
+          pageNum++;
+          queueRenderPage(pageNum);
+        });
+        
+        // 加载PDF
+        pdfjsLib.getDocument(pdfpath).promise.then(pdfDoc_ => {
+          pdfDoc = pdfDoc_;
+          pageCountDisplay.textContent = pdfDoc.numPages;
+        
+          renderPage(pageNum);
+        });
+    </script>
+</body>
